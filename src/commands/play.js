@@ -4,6 +4,7 @@ import { createErrorEmbed } from '../utils/embed.js';
 import { config } from '../config.js';
 import { EMOJIS } from '../constants/emojis.js';
 import { logger } from '../utils/logger.js';
+import { isSpotifyUrl, resolveSpotify } from '../player/resolvers.js';
 
 export default {
   data: new SlashCommandBuilder()
@@ -39,7 +40,58 @@ export default {
     const query = interaction.options.getString('query');
     const player = useMainPlayer();
 
+    const nodeOptions = {
+      metadata: {
+        channel: interaction.channel,
+        requestedBy: interaction.user,
+      },
+      volume: config.defaultVolume,
+      leaveOnEmpty: true,
+      leaveOnEmptyCooldown: config.inactivityTimeout,
+      leaveOnEnd: true,
+      leaveOnEndCooldown: config.inactivityTimeout,
+    };
+
     try {
+      // Spotify URL kontrolü
+      if (isSpotifyUrl(query)) {
+        const result = await resolveSpotify({
+          player,
+          url: query,
+          channel,
+          nodeOptions,
+          textChannel: interaction.channel,
+          requestedBy: interaction.user,
+        });
+
+        if (!result.success) {
+          return interaction.followUp({
+            embeds: [createErrorEmbed('Spotify şarkısı YouTube\'da bulunamadı!')],
+          });
+        }
+
+        if (result.total > 1) {
+          return interaction.followUp({
+            embeds: [{
+              color: 0x1db954,
+              description: `${EMOJIS.ADD} Spotify playlist: **${result.added}/${result.total}** şarkı eklendi.${result.failed > 0 ? `\n${EMOJIS.WARNING} ${result.failed} şarkı bulunamadı.` : ''}`,
+              footer: { text: 'MuseBot' },
+              timestamp: new Date().toISOString(),
+            }],
+          });
+        }
+
+        return interaction.followUp({
+          embeds: [{
+            color: 0x1db954,
+            description: `${EMOJIS.MUSIC} Spotify şarkısı çalınıyor...`,
+            footer: { text: 'MuseBot' },
+            timestamp: new Date().toISOString(),
+          }],
+        });
+      }
+
+      // YouTube URL veya arama
       const result = await player.search(query, {
         requestedBy: interaction.user,
       });
@@ -50,19 +102,7 @@ export default {
         });
       }
 
-      const { track } = await player.play(channel, result, {
-        nodeOptions: {
-          metadata: {
-            channel: interaction.channel,
-            requestedBy: interaction.user,
-          },
-          volume: config.defaultVolume,
-          leaveOnEmpty: true,
-          leaveOnEmptyCooldown: config.inactivityTimeout,
-          leaveOnEnd: true,
-          leaveOnEndCooldown: config.inactivityTimeout,
-        },
-      });
+      const { track } = await player.play(channel, result, { nodeOptions });
 
       const isPlaylist = result.playlist;
       if (isPlaylist) {
