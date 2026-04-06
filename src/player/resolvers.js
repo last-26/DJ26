@@ -1,6 +1,8 @@
-import { getData, getPreview } from 'spotify-url-info';
+import spotifyUrlInfo from 'spotify-url-info';
 import { useMainPlayer } from 'discord-player';
 import { logger } from '../utils/logger.js';
+
+const { getData, getTracks } = spotifyUrlInfo(fetch);
 
 const SPOTIFY_URL_REGEX = /^https?:\/\/(open\.)?spotify\.com\/(track|playlist|album)\//;
 const FILTER_WORDS = ['cover', 'remix', 'live', 'karaoke', 'instrumental'];
@@ -50,17 +52,13 @@ export async function getSpotifyTrackInfo(url) {
  */
 export async function getSpotifyTracks(url) {
   try {
-    const data = await getData(url);
-    const trackList = data.trackList || data.tracks?.items || [];
+    const tracks = await getTracks(url);
 
-    return trackList.map((item) => {
-      const track = item.track || item;
-      return {
-        name: track.name || track.title,
-        artist: track.artists?.map((a) => a.name).join(', ') || track.subtitle || 'Unknown',
-        duration: track.duration_ms || track.duration || 0,
-      };
-    });
+    return tracks.map((track) => ({
+      name: track.name,
+      artist: track.artists?.map((a) => a.name).join(', ') || track.artist || 'Unknown',
+      duration: track.duration_ms || 0,
+    }));
   } catch (error) {
     logger.error('Spotify playlist bilgisi alınamadı:', error.message);
     return [];

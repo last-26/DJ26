@@ -1,12 +1,13 @@
 import { SlashCommandBuilder } from 'discord.js';
 import { useQueue } from 'discord-player';
-import { Genius } from 'genius-lyrics';
+import pkg from 'genius-lyrics';
+const { Client: GeniusClient } = pkg;
 import { createErrorEmbed } from '../utils/embed.js';
 import { COLORS } from '../config.js';
 import { EMOJIS } from '../constants/emojis.js';
 import { logger } from '../utils/logger.js';
 
-const genius = new Genius();
+const genius = new GeniusClient();
 
 export default {
   data: new SlashCommandBuilder()
